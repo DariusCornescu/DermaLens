@@ -1,0 +1,19 @@
+# FastAPI and server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.19
+
+# Data validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Image processing
+Pillow==11.0.0
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+
+# Deep Learning
+tensorflow>=2.15.0
+
+# Utilities
+python-dotenv==1.0.1
