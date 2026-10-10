@@ -1,110 +1,74 @@
 # DermaLens
 
-AI-Powered Skin Lesion Analysis with Explainable Results
+**Skin lesion classification with visual explanations.** Upload a dermoscopic image and get a prediction across 7 lesion classes, a confidence level, and a Grad-CAM heatmap that shows which part of the image drove the result.
 
-## Overview
+> **Research and education only.** DermaLens is not a medical device and must not be used for diagnosis. See a qualified dermatologist for any skin concern.
 
-DermaLens is a web platform for skin cancer detection using deep learning models with explainability (XAI). The platform allows clinicians and researchers to upload dermoscopic images and receive:
+## What it does
 
-- **Classification**: Predicted class (benign vs malignant or multi-class)
-- **Confidence Score**: Model certainty with calibration information
-- **Explainability Visualization**: Grad-CAM heatmaps showing model attention
-- **Medical Disclaimer**: Clear indication that this is a research tool
+- **Classifies** a lesion into one of 7 classes (melanoma, melanocytic nevus, basal cell carcinoma, actinic keratosis, benign keratosis, dermatofibroma, vascular lesion).
+- **Explains** each prediction with a Grad-CAM heatmap overlaid on the image, with an opacity slider.
+- **Flags uncertainty**: low-confidence predictions are marked as uncertain and show a warning, using confidence thresholds and prediction entropy.
+- **Answers questions** about the result through a small chat widget (OpenAI `gpt-4o-mini`, optional).
 
-> ⚠️ **Research Tool Only** - This platform is for educational and research purposes. Always consult a qualified dermatologist for medical advice.
-
-## Features
-
-### MVP Features
-- Drag-and-drop image upload with validation
-- Real-time skin lesion classification
-- Grad-CAM heatmap visualization with opacity control
-- Confidence calibration display
-- Uncertainty warnings for low-confidence predictions
-- Medical disclaimers throughout
-
-### Tech Stack
-
-**Frontend:**
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS + shadcn/ui
-- TanStack Query
-
-**Backend:**
-- FastAPI
-- Python 3.11+
-- PyTorch
-- pytorch-grad-cam
-
-## Project Structure
+## How it's built
 
 ```
-dermalens/
-├── frontend/           # Next.js application
-├── backend/            # FastAPI application
-├── notebooks/          # Jupyter notebooks for training
-├── docker-compose.yml
-└── README.md
+Next.js frontend  ──►  FastAPI backend  ──►  Keras model  ──►  Grad-CAM
+ (upload, results,      (validation,          (EfficientNetV2-B0)   (heatmap
+  heatmap viewer)        preprocessing,                              as base64)
+                         inference)
 ```
 
-## Getting Started
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, TanStack Query |
+| Backend | FastAPI, Pydantic, TensorFlow / Keras, OpenCV |
+| Explainability | Grad-CAM implemented on the last convolutional layer, including backbones nested inside the model |
+| Packaging | Docker Compose |
 
-### Prerequisites
+## The model study
 
-- Node.js 18+
-- Python 3.11+
-- Docker (optional)
+The `notebooks/` folder holds the experiments behind the model. They compare four pretrained backbones (**EfficientNetV2-B0, InceptionResNetV2, MobileNetV3-Large, ResNet152V2**) on dermoscopic images merged from **HAM10000, BCN20000 and MSK** (ISIC 2019). For each backbone the notebooks cover:
 
-### Frontend Setup
+- **Data-size tiers**: five training-set sizes, from about 8k to 20k images, to see how much data each architecture needs.
+- **Training strategies**: a naive fine-tune, a linear-probe-then-fine-tune (LP-FT) baseline, and **Optuna** hyperparameter search.
+- **Loss and evaluation**: focal loss for class imbalance, with a final evaluation and Grad-CAM notebook per model.
 
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
+The dataset split is made at the lesion level, so images of the same lesion never appear in both training and test sets.
 
-### Backend Setup
+## Run it
 
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-### Docker Setup
+Trained weights are not included in the repository. Put a Keras model at `backend/models/final.keras` (or set `MODEL_PATH`), then:
 
 ```bash
 docker-compose up --build
 ```
 
-## API Endpoints
+The frontend runs at http://localhost:3000 and the API at http://localhost:8000/docs.
+
+To run each part separately:
+
+```bash
+# Backend
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+
+# Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+## API
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/analyze` | Upload image and get analysis |
-| GET | `/api/results/{id}` | Fetch cached result |
-| GET | `/api/health` | Health check |
-
-## Model Information
-
-The platform uses a pre-trained EfficientNet-B0 model fine-tuned on the HAM10000 dataset for skin lesion classification.
-
-### Classes
-- Melanoma (MEL)
-- Melanocytic Nevus (NV)
-- Basal Cell Carcinoma (BCC)
-- Actinic Keratosis (AKIEC)
-- Benign Keratosis (BKL)
-- Dermatofibroma (DF)
-- Vascular Lesion (VASC)
+|---|---|---|
+| `POST` | `/api/analyze` | Upload an image, receive prediction, confidence, and heatmap |
+| `GET` | `/api/health` | Service and model status |
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
-
-## Disclaimer
-
-This software is provided for research and educational purposes only. It is not intended to be a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of a qualified healthcare provider with any questions you may have regarding a medical condition.
+MIT. See [LICENSE](LICENSE).
